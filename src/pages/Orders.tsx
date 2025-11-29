@@ -1,9 +1,8 @@
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Layout } from "@/components/Layout";
-import { OrderStatusBadge } from "@/components/OrderStatusBadge";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Search } from "lucide-react";
+import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -12,136 +11,109 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, RefreshCw, Eye, Plus } from "lucide-react";
-import { Link } from "react-router-dom";
-import { listOrders } from "@/services/orderService";
-import { backendToUiStatus } from "@/types/status";
-import type { OrderResponse } from "@/types/order";
-
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { AddOrderDialog } from "@/components/AddOrderDialog";
 
 const Orders = () => {
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["orders"],
-    queryFn: () => listOrders({ size: 200 }).then((res) => res.content),
-  });
+  const orders = [
+    { id: 1001, customer: "John Doe", date: "2024-01-15", items: 3, total: 249.99, status: "Delivered" },
+    { id: 1002, customer: "Jane Smith", date: "2024-01-16", items: 2, total: 159.99, status: "Pending" },
+    { id: 1003, customer: "Bob Johnson", date: "2024-01-16", items: 5, total: 399.99, status: "Processing" },
+    { id: 1004, customer: "Alice Brown", date: "2024-01-17", items: 1, total: 79.99, status: "Pending" },
+    { id: 1005, customer: "Charlie Wilson", date: "2024-01-17", items: 4, total: 329.99, status: "Delivered" },
+    { id: 1006, customer: "Diana Davis", date: "2024-01-18", items: 2, total: 189.99, status: "Processing" },
+  ];
 
-  const filteredOrders = useMemo(() => {
-    if (!data) return [];
-    return data.filter((order) => {
-      const haystack = [
-        order.orderId,
-        order.userId,
-        ...order.items.map((item) => item.productName),
-      ]
-        .join(" ")
-        .toLowerCase();
-
-      return haystack.includes(searchQuery.toLowerCase());
-    });
-  }, [data, searchQuery]);
+  const getStatusBadge = (status: string) => {
+    if (status === "Delivered") return <Badge className="bg-success">{status}</Badge>;
+    if (status === "Processing") return <Badge className="bg-warning">{status}</Badge>;
+    return <Badge variant="secondary">{status}</Badge>;
+  };
 
   return (
     <Layout>
       <div className="p-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Orders</h1>
-            <p className="text-muted-foreground mt-1">Manage and track all customer orders</p>
+            <h1 className="text-3xl font-bold text-foreground">Order Management</h1>
+            <p className="text-muted-foreground mt-2">Track and manage all customer orders</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
-              <RefreshCw className="h-4 w-4 mr-2 animate-spin" style={{ animationPlayState: isLoading ? "running" : "paused" }} />
-              Refresh
-            </Button>
-            <Link to="/orders/new">
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Order
-              </Button>
-            </Link>
-          </div>
+          <AddOrderDialog />
         </div>
 
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <CardTitle>All Orders</CardTitle>
               <div className="flex items-center gap-4">
-                <div className="relative">
+                <div className="relative w-64">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search orders..."
-                    className="pl-10 w-64"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
                   />
                 </div>
+                <Select defaultValue="all">
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="processing">Processing</SelectItem>
+                    <SelectItem value="delivered">Delivered</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            {isError && (
-              <div className="text-destructive mb-4">
-                Unable to load orders. Please verify the Order Service is running and try again.
-              </div>
-            )}
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Order ID</TableHead>
-                  <TableHead>Customer ID</TableHead>
-                  <TableHead>Items</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Customer</TableHead>
                   <TableHead>Date</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead>Items</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading && (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
-                      Loading orders...
+                {orders.map((order) => (
+                  <TableRow key={order.id} className="hover:bg-muted/50 transition-colors">
+                    <TableCell className="font-medium">#{order.id}</TableCell>
+                    <TableCell>{order.customer}</TableCell>
+                    <TableCell className="text-muted-foreground">{order.date}</TableCell>
+                    <TableCell>{order.items}</TableCell>
+                    <TableCell className="font-medium">${order.total}</TableCell>
+                    <TableCell>{getStatusBadge(order.status)}</TableCell>
+                    <TableCell className="text-right">
+                      <Select defaultValue={order.status.toLowerCase()}>
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="processing">Processing</SelectItem>
+                          <SelectItem value="delivered">Delivered</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                   </TableRow>
-                )}
-                {!isLoading && filteredOrders.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
-                      No orders found.
-                    </TableCell>
-                  </TableRow>
-                )}
-                {filteredOrders.map((order: OrderResponse) => {
-                  const uiStatus = backendToUiStatus(order.status);
-                  const createdAt = new Date(order.timestamp);
-                  return (
-                    <TableRow key={order.orderId}>
-                      <TableCell className="font-medium">{order.orderId}</TableCell>
-                      <TableCell className="font-mono text-sm">{order.userId}</TableCell>
-                      <TableCell>{order.items.reduce((sum, item) => sum + item.quantity, 0)}</TableCell>
-                      <TableCell className="font-semibold">
-                        {formatCurrency(order.totalAmount ?? 0)}
-                      </TableCell>
-                      <TableCell>
-                        <OrderStatusBadge status={uiStatus} />
-                      </TableCell>
-                      <TableCell>{createdAt.toLocaleString()}</TableCell>
-                      <TableCell>
-                        <Link to={`/orders/${order.orderId}`}>
-                          <Button variant="ghost" size="sm">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                ))}
               </TableBody>
             </Table>
           </CardContent>
